@@ -7,8 +7,6 @@ export type Game = {
   title: string
   steam_app_id: number | null
   cover_url: string
-  on_switch1: boolean
-  on_switch2: boolean
   achievement_count: number
   unlocked_count: number | null
   in_library: boolean | null

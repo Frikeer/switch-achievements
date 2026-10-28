@@ -11,8 +11,9 @@ class AchievementInline(admin.TabularInline):
 
 @admin.register(Game)
 class GameAdmin(admin.ModelAdmin):
-    list_display = ['title', 'steam_app_id', 'on_switch1', 'on_switch2', 'achievement_count', 'updated_at']
-    list_filter = ['on_switch1', 'on_switch2']
+    list_display = ['title', 'steam_app_id', 'is_reviewed', 'achievement_count', 'updated_at']
+    list_editable = ['is_reviewed']
+    list_filter = ['is_reviewed']
     search_fields = ['title', 'slug', 'steam_app_id']
     prepopulated_fields = {'slug': ['title']}
     inlines = [AchievementInline]

@@ -3,8 +3,6 @@
   "slug": "demo-quest",
   "steam_app_id": null,
   "cover_url": "",
-  "on_switch1": true,
-  "on_switch2": true,
   "achievements": [
     {"api_name": "DEMO_START", "name": "First Steps", "description": "Start a new game.", "hidden": false, "icon_url": "", "icon_gray_url": ""},
     {"api_name": "DEMO_CHAPTER_1", "name": "Chapter One", "description": "Finish the first chapter.", "hidden": false, "icon_url": "", "icon_gray_url": ""},

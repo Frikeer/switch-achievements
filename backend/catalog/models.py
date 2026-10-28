@@ -6,8 +6,8 @@ class Game(models.Model):
     slug = models.SlugField(max_length=200, unique=True)
     steam_app_id = models.PositiveIntegerField(null=True, blank=True, unique=True)
     cover_url = models.URLField(blank=True)
-    on_switch1 = models.BooleanField('on Switch 1', default=True)
-    on_switch2 = models.BooleanField('on Switch 2', default=False)
+    # Imports create unreviewed games; only reviewed ones are shown on the site.
+    is_reviewed = models.BooleanField('reviewed', default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

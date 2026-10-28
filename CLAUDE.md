@@ -32,7 +32,7 @@ npx shadcn@latest add <component>   # adds to src/components/ui/
 
 Catalog data (from `backend/`):
 ```sh
-uv run --env-file .env python manage.py import_steam 367520 [--switch2] [--overwrite] [--prune]
+uv run --env-file .env python manage.py import_steam 367520 [--title ...] [--overwrite] [--prune]
 uv run python manage.py export_achievements <slug...> | --all  [-o exports/]
 uv run python manage.py import_achievements sample_data/demo-quest.json [--prune]
 ```
@@ -41,10 +41,11 @@ uv run python manage.py import_achievements sample_data/demo-quest.json [--prune
 
 **Data flow for the catalog.** The database is the source of truth, and admins edit it in the Django admin. All imports and exports go through one JSON shape, documented at the top of `catalog/services.py`. `fetch_steam_game()` converts Steam's schema into that shape, and `upsert_game()` applies it. Achievements are matched on `api_name` (Steam's key), and list order becomes `sort_order`. `import_steam` defaults to `overwrite=False`, so hand edits survive re-imports. `import_achievements` overwrites because the JSON file *is* the edit. `prune` never deletes achievements that users have unlocked.
 
+**Review flag.** `Game.is_reviewed` defaults to `False`, so every import creates a hidden game. It isn't part of the JSON shape, so imports can't set or reset it, and only the admin publishes a game. Every user-facing query filters on `is_reviewed=True`: `GameViewSet`, ticking, adding to the library, and stats. Keep that filter on any new endpoint that exposes games.
+
 **Apps.**
 - `catalog`: `Game`, `Achievement`, the read-only `GameViewSet`, and the import/export commands.
 - `tracking`: `UserGame` (the user's library) and `UserAchievement` (one row per ticked achievement; unticking deletes the row; `unlocked_at` is a user-editable date). It also has the `/api/me/...` views.
-- Progress is per game, not split by Switch 1 vs 2. `on_switch1` / `on_switch2` are just labels.
 - Ticking an achievement auto-adds its game to the library. Removing a game from the library keeps its unlocks, but stats only count library games.
 - `GameViewSet` annotates per-user fields (`unlocked_count`, `in_library`, and on detail each achievement's `unlocked_at` / `note` via a `my_unlocks` prefetch). These fields are `null` for anonymous users.
 

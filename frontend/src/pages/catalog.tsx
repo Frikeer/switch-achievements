@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { SearchIcon } from 'lucide-react'
 import { useDeferredValue } from 'react'
 import { Link, useSearchParams } from 'react-router'
-import { ConsoleBadges, Cover, ErrorAlert, ProgressLine } from '@/components/common'
+import { Cover, ErrorAlert, ProgressLine } from '@/components/common'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -16,10 +16,7 @@ function GameCard({ game }: { game: Game }) {
       <Card className="h-full gap-0 overflow-hidden py-0 transition-shadow group-hover:shadow-md">
         <Cover src={game.cover_url} alt={game.title} />
         <CardContent className="space-y-3 py-4">
-          <div className="flex items-start justify-between gap-2">
-            <h2 className="font-medium leading-tight">{game.title}</h2>
-            <ConsoleBadges game={game} />
-          </div>
+          <h2 className="font-medium leading-tight">{game.title}</h2>
           {game.unlocked_count !== null && (game.in_library || game.unlocked_count > 0) ? (
             <ProgressLine unlocked={game.unlocked_count} total={game.achievement_count} />
           ) : (

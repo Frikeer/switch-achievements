@@ -69,6 +69,21 @@ class TestUpsertGame:
         assert result.updated == ['B']
         assert Achievement.objects.get(api_name='B').description == 'Now revealed'
 
+    def test_new_games_start_unreviewed_and_reimports_keep_the_flag(self):
+        upsert_game(game_data())
+        assert not Game.objects.get().is_reviewed
+
+        Game.objects.update(is_reviewed=True)
+        upsert_game(game_data(), overwrite=False)
+        upsert_game(game_data(title='Changed'))
+        assert Game.objects.get().is_reviewed
+
+    def test_input_cannot_mark_a_game_reviewed(self):
+        upsert_game(game_data(is_reviewed=True))
+        game = Game.objects.get()
+        assert not game.is_reviewed
+        assert 'is_reviewed' not in export_game(game)
+
     def test_matches_existing_game_by_steam_app_id(self):
         upsert_game(game_data(slug='hk'))
         upsert_game(game_data(slug=None), overwrite=False)
@@ -109,7 +124,7 @@ class TestUpsertGame:
         assert Game.objects.count() == 0
 
     def test_export_round_trips(self):
-        upsert_game(game_data(on_switch2=True))
+        upsert_game(game_data())
         exported = export_game(Game.objects.get())
 
         Game.objects.all().delete()
@@ -179,11 +194,12 @@ class TestSteam:
     def test_import_steam_command(self, _get, settings):
         settings.STEAM_API_KEY = 'key'
         out = StringIO()
-        call_command('import_steam', '367520', '--switch2', stdout=out)
+        call_command('import_steam', '367520', stdout=out)
 
         game = Game.objects.get()
-        assert (game.title, game.on_switch2, game.achievements.count()) == ('Hollow Knight', True, 2)
+        assert (game.title, game.is_reviewed, game.achievements.count()) == ('Hollow Knight', False, 2)
         assert 'Created "Hollow Knight"' in out.getvalue()
+        assert 'not reviewed yet' in out.getvalue()
 
 
 @pytest.mark.parametrize(

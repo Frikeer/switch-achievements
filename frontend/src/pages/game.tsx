@@ -3,7 +3,7 @@ import { ArrowLeftIcon, EyeIcon, LockIcon, PencilIcon } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { toast } from 'sonner'
-import { ConsoleBadges, Cover, ErrorAlert, ProgressLine } from '@/components/common'
+import { Cover, ErrorAlert, ProgressLine } from '@/components/common'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -243,10 +243,7 @@ export function GamePage() {
       <div className="flex flex-col gap-6 sm:flex-row">
         <Cover src={data.cover_url} alt={data.title} className="rounded-xl sm:w-72" />
         <div className="flex flex-1 flex-col gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold">{data.title}</h1>
-            <ConsoleBadges game={data} />
-          </div>
+          <h1 className="text-2xl font-semibold">{data.title}</h1>
           <ProgressLine unlocked={unlockedCount} total={achievements.length} />
           {user ? (
             <Button

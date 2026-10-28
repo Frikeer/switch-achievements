@@ -1,6 +1,5 @@
 import { AlertCircleIcon } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { cn } from '@/lib/utils'
 
@@ -11,15 +10,6 @@ export function ErrorAlert({ error }: { error: unknown }) {
       <AlertCircleIcon />
       <AlertDescription>{error instanceof Error ? error.message : String(error)}</AlertDescription>
     </Alert>
-  )
-}
-
-export function ConsoleBadges({ game }: { game: { on_switch1: boolean; on_switch2: boolean } }) {
-  return (
-    <div className="flex gap-1">
-      {game.on_switch1 && <Badge variant="secondary">Switch</Badge>}
-      {game.on_switch2 && <Badge variant="secondary">Switch 2</Badge>}
-    </div>
   )
 }
 
