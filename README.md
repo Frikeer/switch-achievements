@@ -33,6 +33,8 @@ uv run python manage.py import_achievements sample_data/demo-quest.json   # opti
 uv run python manage.py runserver
 ```
 
+Imported games start out unreviewed and hidden from the site, so tick "reviewed" for the demo game in the admin to see it.
+
 ### Frontend
 
 In a second terminal:
@@ -59,14 +61,15 @@ Then pass the file to `uv run`:
 
 ```sh
 cd backend
-uv run --env-file .env python manage.py import_steam 367520 --switch2
+uv run --env-file .env python manage.py import_steam 367520
 ```
+
+New games are imported as **unreviewed** and stay hidden from the site until an admin ticks "reviewed" in the game list at http://localhost:8000/admin/catalog/game/. Check the achievement list against the Switch version first. Re-imports never change the flag.
 
 The key belongs to your Steam account, so keep it private. If it leaks, revoke it at https://steamcommunity.com/dev/revokekey.
 
 | Option | Effect |
 | --- | --- |
-| `--switch2` | Mark the game as available on Switch 2 |
 | `--title "..."` | Use a different title than the Steam store name |
 | `--overwrite` | Replace hand-edited fields with fresh Steam data |
 | `--prune` | Delete achievements that are no longer on Steam |
