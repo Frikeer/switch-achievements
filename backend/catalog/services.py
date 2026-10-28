@@ -8,15 +8,14 @@ a hand-edited JSON file and an export all round-trip through ``upsert_game``:
       "slug": "hollow-knight",
       "steam_app_id": 367520,
       "cover_url": "https://...",
-      "on_switch1": true,
-      "on_switch2": false,
       "achievements": [
         {"api_name": "ACH_1", "name": "...", "description": "...", "hidden": false,
          "icon_url": "https://...", "icon_gray_url": "https://..."}
       ]
     }
 
-Achievement order in the list becomes ``sort_order``.
+Achievement order in the list becomes ``sort_order``. ``is_reviewed`` is not part
+of the shape: new games always start unreviewed, and imports never change the flag.
 """
 
 from dataclasses import dataclass, field
@@ -30,7 +29,7 @@ from django.utils.text import slugify
 
 from .models import Achievement, Game
 
-GAME_FIELDS = ['title', 'steam_app_id', 'cover_url', 'on_switch1', 'on_switch2']
+GAME_FIELDS = ['title', 'steam_app_id', 'cover_url']
 ACHIEVEMENT_FIELDS = ['name', 'description', 'hidden', 'icon_url', 'icon_gray_url']
 
 STEAM_SCHEMA_URL = 'https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/'

@@ -16,8 +16,6 @@ class GameListSerializer(serializers.ModelSerializer):
             'title',
             'steam_app_id',
             'cover_url',
-            'on_switch1',
-            'on_switch2',
             'achievement_count',
             'unlocked_count',
             'in_library',

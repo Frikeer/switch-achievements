@@ -16,19 +16,26 @@ from .models import UserAchievement, UserGame
 pytestmark = pytest.mark.django_db
 
 
+def make_game(title, achievements, *, reviewed=True):
+    game = upsert_game({'title': title, 'achievements': achievements}).game
+    game.is_reviewed = reviewed
+    game.save()
+    return game
+
+
 @pytest.fixture
 def game():
-    return upsert_game(
-        {
-            'title': 'Hollow Knight',
-            'achievements': [{'api_name': f'A{i}', 'name': f'Achievement {i}'} for i in range(4)],
-        }
-    ).game
+    return make_game('Hollow Knight', [{'api_name': f'A{i}', 'name': f'Achievement {i}'} for i in range(4)])
 
 
 @pytest.fixture
 def other_game():
-    return upsert_game({'title': 'Celeste', 'achievements': [{'api_name': 'C', 'name': 'Summit'}]}).game
+    return make_game('Celeste', [{'api_name': 'C', 'name': 'Summit'}])
+
+
+@pytest.fixture
+def unreviewed_game():
+    return make_game('Hades', [{'api_name': 'H', 'name': 'Escape'}], reviewed=False)
 
 
 def make_user(email):
@@ -60,12 +67,14 @@ class TestCatalogApi:
             'title': 'Hollow Knight',
             'steam_app_id': None,
             'cover_url': '',
-            'on_switch1': True,
-            'on_switch2': False,
             'achievement_count': 4,
             'unlocked_count': None,
             'in_library': None,
         }
+
+    def test_unreviewed_games_are_hidden(self, client, game, unreviewed_game):
+        assert [g['slug'] for g in client.get('/api/games/').json()] == ['hollow-knight']
+        assert client.get('/api/games/hades/').status_code == 404
 
     def test_search(self, client, game, other_game):
         assert [g['slug'] for g in client.get('/api/games/?q=cele').json()] == ['celeste']
@@ -132,6 +141,11 @@ class TestUnlockApi:
     def test_unknown_achievement(self, client):
         assert client.put('/api/me/achievements/9999/').status_code == 404
 
+    def test_cannot_tick_unreviewed_game(self, client, unreviewed_game):
+        assert client.put(f'/api/me/achievements/{unreviewed_game.achievements.get().id}/').status_code == 404
+        assert not UserAchievement.objects.exists()
+        assert not UserGame.objects.exists()
+
 
 class TestLibraryApi:
     def test_add_and_remove_keeps_progress(self, client, user, game):
@@ -142,6 +156,9 @@ class TestLibraryApi:
         assert client.delete('/api/me/games/hollow-knight/').status_code == 204
         assert not UserGame.objects.exists()
         assert UserAchievement.objects.count() == 1
+
+    def test_cannot_add_unreviewed_game(self, client, unreviewed_game):
+        assert client.put('/api/me/games/hades/').status_code == 404
 
 
 class TestStatsApi:
@@ -166,6 +183,15 @@ class TestStatsApi:
         per_game = {g['slug']: (g['unlocked'], g['total'], g['percent']) for g in data['per_game']}
         assert per_game == {'hollow-knight': (2, 4, 50.0), 'celeste': (1, 1, 100.0)}
         assert [u['name'] for u in data['recent_unlocks']] == ['Summit', 'Achievement 1', 'Achievement 0']
+
+    def test_excludes_games_that_are_no_longer_reviewed(self, client, user, game):
+        UserGame.objects.create(user=user, game=game)
+        UserAchievement.objects.create(user=user, achievement=ach(game, 0))
+        game.is_reviewed = False
+        game.save()
+
+        data = client.get('/api/me/stats/').json()
+        assert (data['games'], data['unlocked'], data['recent_unlocks']) == (0, 0, [])
 
     def test_empty(self, client):
         data = client.get('/api/me/stats/').json()

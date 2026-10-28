@@ -8,7 +8,7 @@ from .serializers import GameDetailSerializer, GameListSerializer
 
 
 class GameViewSet(viewsets.ReadOnlyModelViewSet):
-    """The game catalog. Readable by anyone; includes the user's progress when logged in."""
+    """The reviewed games. Readable by anyone; includes the user's progress when logged in."""
 
     lookup_field = 'slug'
 
@@ -17,7 +17,7 @@ class GameViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        qs = Game.objects.annotate(achievement_count=Count('achievements', distinct=True))
+        qs = Game.objects.filter(is_reviewed=True).annotate(achievement_count=Count('achievements', distinct=True))
 
         if q := self.request.query_params.get('q', '').strip():
             qs = qs.filter(title__icontains=q)

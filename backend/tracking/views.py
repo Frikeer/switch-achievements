@@ -26,7 +26,7 @@ class LibraryGameView(APIView):
     permission_classes = [IsAuthenticated]
 
     def put(self, request, slug):
-        game = get_object_or_404(Game, slug=slug)
+        game = get_object_or_404(Game, slug=slug, is_reviewed=True)
         _, created = UserGame.objects.get_or_create(user=request.user, game=game)
         return Response({'in_library': True}, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
@@ -44,7 +44,7 @@ class UnlockView(APIView):
     permission_classes = [IsAuthenticated]
 
     def put(self, request, achievement_id):
-        achievement = get_object_or_404(Achievement, pk=achievement_id)
+        achievement = get_object_or_404(Achievement, pk=achievement_id, game__is_reviewed=True)
         serializer = UnlockSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -66,14 +66,14 @@ class UnlockView(APIView):
 
 
 class StatsView(APIView):
-    """Dashboard numbers for the games in the user's library."""
+    """Dashboard numbers for the (reviewed) games in the user's library."""
 
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         user = request.user
         games = (
-            Game.objects.filter(owners__user=user)
+            Game.objects.filter(owners__user=user, is_reviewed=True)
             .annotate(
                 total=Count('achievements', distinct=True),
                 unlocked=Count('achievements__unlocks', filter=Q(achievements__unlocks__user=user), distinct=True),
@@ -94,7 +94,9 @@ class StatsView(APIView):
         unlocked = sum(g['unlocked'] for g in per_game)
         total = sum(g['total'] for g in per_game)
         recent = (
-            UserAchievement.objects.filter(user=user, achievement__game__owners__user=user)
+            UserAchievement.objects.filter(
+                user=user, achievement__game__owners__user=user, achievement__game__is_reviewed=True
+            )
             .select_related('achievement__game')
             .order_by('-unlocked_at', '-created_at')[:RECENT_UNLOCKS]
         )
