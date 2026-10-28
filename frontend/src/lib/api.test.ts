@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, request } from './api'
+import { ApiError, api, request } from './api'
 import { formatDate, today } from './dates'
 
 function mockFetch(status: number, body: unknown) {
@@ -36,6 +36,19 @@ describe('request', () => {
     const error = await request<never>('GET', '/api/x/').catch((e: unknown) => e as ApiError)
     expect(error).toBeInstanceOf(ApiError)
     expect(error.message).toBe(message)
+  })
+
+  it('encodes slugs so they cannot change the API path', async () => {
+    vi.stubGlobal('document', { cookie: '' })
+    const fetch = mockFetch(200, {})
+
+    await api.game('../me/stats')
+    await api.addToLibrary('x/../../achievements/5')
+
+    expect(fetch.mock.calls.map(([url]) => new URL(url, 'http://test').pathname)).toEqual([
+      '/api/games/..%2Fme%2Fstats/',
+      '/api/me/games/x%2F..%2F..%2Fachievements%2F5/',
+    ])
   })
 })
 

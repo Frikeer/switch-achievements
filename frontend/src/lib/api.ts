@@ -110,9 +110,10 @@ export const api = {
     if (params.library) qs.set('library', '1')
     return request<Game[]>('GET', `/api/games/?${qs}`)
   },
-  game: (slug: string) => request<GameDetail>('GET', `/api/games/${slug}/`),
-  addToLibrary: (slug: string) => request<unknown>('PUT', `/api/me/games/${slug}/`),
-  removeFromLibrary: (slug: string) => request<null>('DELETE', `/api/me/games/${slug}/`),
+  // Slugs come from the page URL, so encode them to keep "a/../b" from changing the API path.
+  game: (slug: string) => request<GameDetail>('GET', `/api/games/${encodeURIComponent(slug)}/`),
+  addToLibrary: (slug: string) => request<unknown>('PUT', `/api/me/games/${encodeURIComponent(slug)}/`),
+  removeFromLibrary: (slug: string) => request<null>('DELETE', `/api/me/games/${encodeURIComponent(slug)}/`),
   unlock: (id: number, data: { unlocked_at?: string; note?: string } = {}) =>
     request<Unlock>('PUT', `/api/me/achievements/${id}/`, data),
   lock: (id: number) => request<null>('DELETE', `/api/me/achievements/${id}/`),
