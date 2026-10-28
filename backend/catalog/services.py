@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 
 import requests
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Count
 from django.utils.text import slugify
@@ -60,6 +61,15 @@ def export_game(game: Game) -> dict:
     return data
 
 
+def validate(obj):
+    """Run model validation, since imported data skips forms (e.g. a slug like "../x")."""
+    try:
+        obj.full_clean()
+    except ValidationError as e:
+        errors = '; '.join(f'{f}: {" ".join(msgs)}' for f, msgs in e.message_dict.items())
+        raise CatalogImportError(f'{obj}: {errors}') from e
+
+
 @transaction.atomic
 def upsert_game(data: dict, *, overwrite: bool = True, prune: bool = False) -> UpsertResult:
     """Create or update a game and its achievements from the JSON shape above.
@@ -72,6 +82,8 @@ def upsert_game(data: dict, *, overwrite: bool = True, prune: bool = False) -> U
         raise CatalogImportError('"title" is required')
     slug = data.get('slug') or slugify(data['title'])
     app_id = data.get('steam_app_id')
+    if app_id is not None and type(app_id) is not int:
+        raise CatalogImportError('"steam_app_id" must be a number')
 
     game = Game.objects.filter(slug=slug).first()
     if game is None and app_id:
@@ -87,6 +99,7 @@ def upsert_game(data: dict, *, overwrite: bool = True, prune: bool = False) -> U
                 setattr(game, f, data[f])
         game.cover_url = game.cover_url or ''
         game.slug = slug
+        validate(game)
         game.save()
 
     existing = {a.api_name: a for a in game.achievements.all()}
@@ -104,13 +117,16 @@ def upsert_game(data: dict, *, overwrite: bool = True, prune: bool = False) -> U
         values['sort_order'] = order
         achievement = existing.get(api_name)
         if achievement is None:
-            Achievement.objects.create(game=game, api_name=api_name, **values)
+            achievement = Achievement(game=game, api_name=api_name, **values)
+            validate(achievement)
+            achievement.save()
             result.created.append(api_name)
         elif overwrite:
             changed = [f for f, v in values.items() if getattr(achievement, f) != v]
             if changed:
                 for f in changed:
                     setattr(achievement, f, values[f])
+                validate(achievement)
                 achievement.save(update_fields=changed)
                 result.updated.append(api_name)
 
@@ -132,11 +148,16 @@ def fetch_steam_game(app_id: int, *, api_key: str | None = None, timeout: int = 
     if not api_key:
         raise CatalogImportError('STEAM_API_KEY is not set (get one at https://steamcommunity.com/dev/apikey)')
 
-    resp = requests.get(STEAM_SCHEMA_URL, params={'key': api_key, 'appid': app_id, 'l': 'english'}, timeout=timeout)
-    if resp.status_code == 403:
-        raise CatalogImportError('Steam rejected the API key (HTTP 403)')
-    resp.raise_for_status()
-    schema = resp.json().get('game') or {}
+    try:
+        resp = requests.get(STEAM_SCHEMA_URL, params={'key': api_key, 'appid': app_id, 'l': 'english'}, timeout=timeout)
+        if resp.status_code == 403:
+            raise CatalogImportError('Steam rejected the API key (HTTP 403)')
+        resp.raise_for_status()
+        schema = resp.json().get('game') or {}
+    except requests.RequestException as e:
+        # requests' messages include the URL, which contains the API key, so drop them.
+        reason = f'HTTP {e.response.status_code}' if e.response is not None else type(e).__name__
+        raise CatalogImportError(f'Steam schema request failed ({reason})') from None
     steam_achievements = schema.get('availableGameStats', {}).get('achievements', [])
     if not steam_achievements:
         raise CatalogImportError(f'Steam has no achievements for app {app_id}')

@@ -3,6 +3,7 @@ from io import StringIO
 from unittest import mock
 
 import pytest
+import requests
 from django.contrib.auth import get_user_model
 from django.core.management import CommandError, call_command
 
@@ -95,6 +96,11 @@ class TestUpsertGame:
             {'achievements': []},
             game_data(achievements=[{'api_name': 'A'}]),
             game_data(achievements=[{'api_name': 'A', 'name': 'x'}, {'api_name': 'A', 'name': 'y'}]),
+            game_data(slug='../../outside'),
+            game_data(steam_app_id='not-a-number'),
+            game_data(cover_url='javascript:alert(1)'),
+            game_data(achievements=[{'api_name': 'A', 'name': 'x', 'icon_url': 'not a url'}]),
+            game_data(achievements=[{'api_name': 'A', 'name': 'x' * 201}]),
         ],
     )
     def test_invalid_data_raises_and_writes_nothing(self, data):
@@ -125,15 +131,15 @@ def fake_steam_response(url, params=None, timeout=None):
                             'displayName': 'Falsehood',
                             'hidden': 0,
                             'description': 'Defeat it',
-                            'icon': 'https://cdn/1.jpg',
-                            'icongray': 'https://cdn/1g.jpg',
+                            'icon': 'https://cdn.example.com/1.jpg',
+                            'icongray': 'https://cdn.example.com/1g.jpg',
                         },
                         {
                             'name': 'ACH_2',
                             'displayName': 'Secret',
                             'hidden': 1,
-                            'icon': 'https://cdn/2.jpg',
-                            'icongray': 'https://cdn/2g.jpg',
+                            'icon': 'https://cdn.example.com/2.jpg',
+                            'icongray': 'https://cdn.example.com/2g.jpg',
                         },
                     ]
                 },
@@ -141,7 +147,10 @@ def fake_steam_response(url, params=None, timeout=None):
         }
     else:
         resp.json.return_value = {
-            '367520': {'success': True, 'data': {'name': 'Hollow Knight', 'header_image': 'https://cdn/header.jpg'}}
+            '367520': {
+                'success': True,
+                'data': {'name': 'Hollow Knight', 'header_image': 'https://cdn.example.com/header.jpg'},
+            }
         }
     return resp
 
@@ -152,14 +161,14 @@ class TestSteam:
         data = fetch_steam_game(367520, api_key='key')
 
         assert data['title'] == 'Hollow Knight'
-        assert data['cover_url'] == 'https://cdn/header.jpg'
+        assert data['cover_url'] == 'https://cdn.example.com/header.jpg'
         assert data['achievements'][1] == {
             'api_name': 'ACH_2',
             'name': 'Secret',
             'description': '',
             'hidden': True,
-            'icon_url': 'https://cdn/2.jpg',
-            'icon_gray_url': 'https://cdn/2g.jpg',
+            'icon_url': 'https://cdn.example.com/2.jpg',
+            'icon_gray_url': 'https://cdn.example.com/2g.jpg',
         }
 
     def test_missing_api_key(self, _get, settings):
@@ -175,6 +184,22 @@ class TestSteam:
         game = Game.objects.get()
         assert (game.title, game.on_switch2, game.achievements.count()) == ('Hollow Knight', True, 2)
         assert 'Created "Hollow Knight"' in out.getvalue()
+
+
+@pytest.mark.parametrize(
+    'error',
+    [
+        requests.HTTPError('500 Server Error for url: ...?key=SECRET', response=mock.Mock(status_code=500)),
+        requests.ConnectionError('Max retries exceeded with url: ...?key=SECRET'),
+    ],
+)
+def test_steam_errors_hide_api_key(error):
+    with mock.patch('catalog.services.requests.get', side_effect=error):
+        with pytest.raises(CatalogImportError) as exc_info:
+            fetch_steam_game(367520, api_key='SECRET')
+
+    assert 'SECRET' not in str(exc_info.value)
+    assert exc_info.value.__suppress_context__
 
 
 class TestJsonCommands:
